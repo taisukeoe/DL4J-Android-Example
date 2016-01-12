@@ -16,10 +16,14 @@
 
 package com.example.android.displayingbitmaps.ui;
 
+import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
 
+import org.canova.api.split.InputStreamInputSplit;
+import org.canova.image.recordreader.ImageRecordReader;
+import org.deeplearning4j.datasets.canova.RecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.DataSetIterator;
 import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
@@ -89,7 +93,16 @@ public class ImageGridActivity extends FragmentActivity {
         List<INDArray> testLabels = new ArrayList<>();
 
         log.info("Load data....");
-        DataSetIterator mnistIter = new MnistDataSetIterator(batchSize, numSamples, true);
+        AssetManager am = getAssets();
+        List<String> labels = Arrays.asList(am.list("data"));
+
+        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
+        //TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
+        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
+
+        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
+
+//        DataSetIterator mnistIter = new MnistDataSetIterator(batchSize, numSamples, true);
 
         log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()

@@ -17,8 +17,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.android.displayingbitmaps"
-    android:versionCode="1"
-    android:versionName="1.0">
+  >
 
     <!-- Min/target SDK versions (<uses-sdk>) managed by build.gradle -->
 
