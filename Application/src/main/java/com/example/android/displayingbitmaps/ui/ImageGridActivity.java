@@ -95,7 +95,10 @@ public class ImageGridActivity extends FragmentActivity {
 
     public void trainMLP() throws Exception {
         String res = System.setProperty("org.nd4j.linalg.cpu.force_native","false");
-        log.debug("System.setProperty result:"+res);
+        System.setProperty("com.github.fommil.netlib.BLAS","com.github.fommil.netlib.F2jBLAS");
+        System.setProperty("com.github.fommil.netlib.LAPACK","com.github.fommil.netlib.F2jLAPACK");
+        System.setProperty("com.github.fommil.netlib.ARPACK","com.github.fommil.netlib.F2jARPACK");
+//        log.debug("System.setProperty result:"+res);
 
         Nd4j.ENFORCE_NUMERICAL_STABILITY = true;
         final int numRows = 28;
