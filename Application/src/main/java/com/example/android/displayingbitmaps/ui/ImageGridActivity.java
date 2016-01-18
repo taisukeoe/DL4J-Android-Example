@@ -23,6 +23,7 @@ import android.support.v4.app.FragmentTransaction;
 
 import org.canova.api.split.InputStreamInputSplit;
 import org.canova.image.recordreader.ImageRecordReader;
+import org.deeplearning4j.androidexamples.AndroidMnistDataSetIterator;
 import org.deeplearning4j.datasets.canova.RecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.DataSetIterator;
 import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
@@ -46,6 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Simple FragmentActivity to hold the main {@link ImageGridFragment} and not much else.
@@ -68,11 +71,19 @@ public class ImageGridActivity extends FragmentActivity {
             ft.commit();
         }
 
-        try {
-            trainMLP();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    trainMLP();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
     }
 
     public void trainMLP() throws Exception {
@@ -93,16 +104,16 @@ public class ImageGridActivity extends FragmentActivity {
         List<INDArray> testLabels = new ArrayList<>();
 
         log.info("Load data....");
-        AssetManager am = getAssets();
-        List<String> labels = Arrays.asList(am.list("data"));
+//        AssetManager am = getAssets();
+//        List<String> labels = Arrays.asList(am.list("data"));
 
-        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
-        //TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
-        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
+//        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
+//        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
+//        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
 
-        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
+//        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
 
-//        DataSetIterator mnistIter = new MnistDataSetIterator(batchSize, numSamples, true);
+        DataSetIterator mnistIter = new AndroidMnistDataSetIterator(getApplicationContext(), batchSize, numSamples, true);
 
         log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
