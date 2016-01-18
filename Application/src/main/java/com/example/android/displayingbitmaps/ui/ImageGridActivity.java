@@ -121,14 +121,14 @@ public class ImageGridActivity extends FragmentActivity {
          /*
            ImageRecordReader doesn't work in Android due to ImageIO unavailability.
          */
-//        AssetManager am = getAssets();
-//        List<String> labels = Arrays.asList(am.list("data"));
-//        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
-////        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
-//        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
-//        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
+        AssetManager am = getAssets();
+        List<String> labels = Arrays.asList(am.list("data"));
+        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
+//        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
+        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
+        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
 
-        DataSetIterator mnistIter = new AndroidMnistDataSetIterator(getApplicationContext(), batchSize, numSamples, true);
+//        DataSetIterator mnistIter = new AndroidMnistDataSetIterator(getApplicationContext(), batchSize, numSamples, true);
 
         log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
