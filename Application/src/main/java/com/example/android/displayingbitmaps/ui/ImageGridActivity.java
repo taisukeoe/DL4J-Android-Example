@@ -94,6 +94,9 @@ public class ImageGridActivity extends FragmentActivity {
     }
 
     public void trainMLP() throws Exception {
+        String res = System.setProperty("org.nd4j.linalg.cpu.force_native","false");
+        log.debug("System.setProperty result:"+res);
+
         Nd4j.ENFORCE_NUMERICAL_STABILITY = true;
         final int numRows = 28;
         final int numColumns = 28;
