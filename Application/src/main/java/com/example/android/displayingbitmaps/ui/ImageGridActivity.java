@@ -20,6 +20,7 @@ import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
+import android.util.Log;
 
 import org.canova.api.split.InputStreamInputSplit;
 import org.canova.image.recordreader.ImageRecordReader;
@@ -50,10 +51,16 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ch.qos.logback.classic.android.BasicLogcatConfigurator;
+
 /**
  * Simple FragmentActivity to hold the main {@link ImageGridFragment} and not much else.
  */
 public class ImageGridActivity extends FragmentActivity {
+    static {
+        BasicLogcatConfigurator.configureDefaultContext();
+    }
+
     private static final String TAG = "ImageGridActivity";
 
     private static Logger log = LoggerFactory.getLogger(ImageGridActivity.class);
@@ -104,13 +111,15 @@ public class ImageGridActivity extends FragmentActivity {
         List<INDArray> testLabels = new ArrayList<>();
 
         log.info("Load data....");
+
+         /*
+           ImageRecordReader doesn't work in Android due to ImageIO unavailability.
+         */
 //        AssetManager am = getAssets();
 //        List<String> labels = Arrays.asList(am.list("data"));
-
 //        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
-//        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
+////        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
 //        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
-
 //        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
 
         DataSetIterator mnistIter = new AndroidMnistDataSetIterator(getApplicationContext(), batchSize, numSamples, true);
@@ -150,6 +159,11 @@ public class ImageGridActivity extends FragmentActivity {
             mnist = mnistIter.next();
             trainTest = mnist.splitTestAndTrain(splitTrainNum, new Random(seed)); // train set that is the result
             trainInput = trainTest.getTrain(); // get feature matrix and labels for training
+            /*
+             Confirmed AndroidMnistDataSetIterator can successfully load Mnist images into INDArray in Android.
+            */
+            log.debug("FeatureMatrix:" + trainInput.getFeatures().toString());
+
             testInput.add(trainTest.getTest().getFeatureMatrix());
             testLabels.add(trainTest.getTest().getLabels());
             model.fit(trainInput);
