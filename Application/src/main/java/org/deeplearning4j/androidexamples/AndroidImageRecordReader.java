@@ -38,79 +38,76 @@ import java.util.Map;
  */
 public class AndroidImageRecordReader implements RecordReader {
     protected Iterator<InputStream> iter;
+    protected Iterator<URI> labelIter;
     protected Configuration conf;
     protected File currentFile;
-    public List<String> labels  = new ArrayList<>();
+    public List<String> labels = new ArrayList<>();
     protected boolean appendLabel = false;
-    protected Collection<Writable> record;
+    protected Collection<Writable> record = new ArrayList<>();
     protected final List<String> allowedFormats = Arrays.asList("tif", "jpg", "png", "jpeg", "bmp", "JPEG", "JPG", "TIF", "PNG");
     protected boolean hitImage = false;
     protected ImageLoader imageLoader;
     protected InputSplit inputSplit;
-    protected Map<String,String> fileNameMap = new LinkedHashMap<>();
+    protected Map<String, String> fileNameMap = new LinkedHashMap<>();
     protected String pattern; // Pattern to split and segment file name, pass in regex
     protected int patternPosition = 0;
 
     public final static String WIDTH = NAME_SPACE + ".width";
     public final static String HEIGHT = NAME_SPACE + ".height";
     public final static String CHANNELS = NAME_SPACE + ".channels";
-    
+
     public AndroidImageRecordReader() {
     }
 
-    public AndroidImageRecordReader(int width, int height,int channels, List<String> labels) {
-        this(width, height,channels,false);
+    public AndroidImageRecordReader(int width, int height, int channels, List<String> labels) {
+        this(width, height, channels, false);
         this.labels = labels;
     }
 
-    public AndroidImageRecordReader(int width, int height,int channels, boolean appendLabel) {
+    public AndroidImageRecordReader(int width, int height, int channels, boolean appendLabel) {
         this.appendLabel = appendLabel;
-        imageLoader = new ImageLoader(width,height,channels);
+        imageLoader = new ImageLoader(width, height, channels);
     }
 
 
-    public AndroidImageRecordReader(int width, int height,int channels, boolean appendLabel, List<String> labels) {
-        this(width,height,channels,appendLabel);
+    public AndroidImageRecordReader(int width, int height, int channels, boolean appendLabel, List<String> labels) {
+        this(width, height, channels, appendLabel);
         this.labels = labels;
     }
 
-    public AndroidImageRecordReader(int width, int height,int channels, boolean appendLabel, String pattern, int patternPosition) {
-        this(width,height,channels,appendLabel);
+    public AndroidImageRecordReader(int width, int height, int channels, boolean appendLabel, String pattern, int patternPosition) {
+        this(width, height, channels, appendLabel);
         this.pattern = pattern;
         this.patternPosition = patternPosition;
     }
 
-    public AndroidImageRecordReader(int width, int height,int channels, boolean appendLabel, List<String> labels, String pattern, int patternPosition) {
-        this(width,height,channels,appendLabel, labels);
+    public AndroidImageRecordReader(int width, int height, int channels, boolean appendLabel, List<String> labels, String pattern, int patternPosition) {
+        this(width, height, channels, appendLabel, labels);
         this.pattern = pattern;
         this.patternPosition = patternPosition;
     }
 
     protected boolean containsFormat(String format) {
-        for(String format2 : allowedFormats)
-            if(format.endsWith("." + format2))
+        for (String format2 : allowedFormats)
+            if (format.endsWith("." + format2))
                 return true;
         return false;
     }
 
 
     @Override
-    public void initialize(InputSplit split) throws IOException{
+    public void initialize(InputSplit split) throws IOException {
         inputSplit = split;
-        if(split instanceof InputStreamInputSplit) {
-            InputStreamInputSplit split2 = (InputStreamInputSplit) split;
-            InputStream is = split2.getIs();
+        if (split instanceof MultipleInputStreamInputSplit) {
+            MultipleInputStreamInputSplit split2 = (MultipleInputStreamInputSplit) split;
+            InputStream[] iss = split2.getIs();
             URI[] locations = split2.locations();
-            INDArray load = imageLoader.asRowVector(is);
-            record = RecordConverter.toRecord(load);
-            for (int i = 0; i < load.length(); i++) {
+
+            iter = Arrays.asList(iss).iterator();
+            labelIter = Arrays.asList(locations).iterator();
+            for (URI loc:locations) {
                 if (appendLabel) {
-                    Path path = Paths.get(locations[0]);
-                    String parent = path.getParent().toString();
-                    //could have been a uri
-                    if (parent.contains("/")) {
-                        parent = parent.substring(parent.lastIndexOf('/') + 1);
-                    }
+                    String parent = getLabelFromURI(loc);
                     int label = labels.indexOf(parent);
                     if (label >= 0)
                         record.add(new DoubleWritable(labels.indexOf(parent)));
@@ -118,15 +115,24 @@ public class AndroidImageRecordReader implements RecordReader {
                         throw new IllegalStateException("Illegal label " + parent);
                 }
             }
-            is.close();
         }
+    }
+
+    public String getLabelFromURI(URI loc){
+        String path = loc.getPath();
+        String parent = path;
+        //could have been a uri
+        if (path.contains("/")) {
+            parent = path.substring(path.lastIndexOf('/') + 1);
+        }
+        return parent;
     }
 
     @Override
     public void initialize(Configuration conf, InputSplit split) throws IOException, InterruptedException {
-        this.appendLabel = conf.getBoolean(APPEND_LABEL,false);
+        this.appendLabel = conf.getBoolean(APPEND_LABEL, false);
         this.labels = new ArrayList<>(conf.getStringCollection(LABELS));
-        imageLoader = new ImageLoader(conf.getInt(WIDTH,28),conf.getInt(HEIGHT,28),conf.getInt(CHANNELS,1));
+        imageLoader = new ImageLoader(conf.getInt(WIDTH, 28), conf.getInt(HEIGHT, 28), conf.getInt(CHANNELS, 1));
         this.conf = conf;
         initialize(split);
     }
@@ -134,22 +140,22 @@ public class AndroidImageRecordReader implements RecordReader {
 
     @Override
     public Collection<Writable> next() {
-        if(iter != null) {
+        if (iter != null) {
             Collection<Writable> ret = new ArrayList<>();
             InputStream is = iter.next();
-
+            String label = getLabelFromURI(labelIter.next());
             try {
                 Bitmap bmp = BitmapFactory.decodeStream(is);
                 INDArray row = toINDArrayBGR(bmp);
                 ret = RecordConverter.toRecord(row);
-                if(appendLabel)
-                    ret.add(new DoubleWritable(labels.indexOf(image.getParentFile().getName())));
+                if (appendLabel)
+                    ret.add(new DoubleWritable(labels.indexOf(label)));
+                is.close();
             } catch (Exception e) {
                 e.printStackTrace();
             }
             return ret;
-        }
-        else if(record != null) {
+        } else if (record != null) {
             hitImage = true;
             return record;
         }
@@ -158,10 +164,9 @@ public class AndroidImageRecordReader implements RecordReader {
 
     @Override
     public boolean hasNext() {
-        if(iter != null) {
+        if (iter != null) {
             return iter.hasNext();
-        }
-        else if(record != null) {
+        } else if (record != null) {
             return !hitImage;
         }
         throw new IllegalStateException("Indeterminant state: record must not be null, or a file iterator must exist");
@@ -185,34 +190,37 @@ public class AndroidImageRecordReader implements RecordReader {
 
     /**
      * Get the label from the given path
+     *
      * @param path the path to get the label from
      * @return the label for the given path
      */
     public String getLabel(String path) {
-        if(fileNameMap != null && fileNameMap.containsKey(path)) return fileNameMap.get(path);
+        if (fileNameMap != null && fileNameMap.containsKey(path)) return fileNameMap.get(path);
         return (new File(path)).getParentFile().getName();
     }
 
     @Override
-    public List<String> getLabels(){
-        return labels; }
+    public List<String> getLabels() {
+        return labels;
+    }
 
     @Override
     public void reset() {
-        if(inputSplit == null) throw new UnsupportedOperationException("Cannot reset without first initializing");
-        try{
+        if (inputSplit == null)
+            throw new UnsupportedOperationException("Cannot reset without first initializing");
+        try {
             initialize(inputSplit);
-        }catch(Exception e){
-            throw new RuntimeException("Error during LineRecordReader reset",e);
+        } catch (Exception e) {
+            throw new RuntimeException("Error during LineRecordReader reset", e);
         }
     }
 
     @Override
-    public Collection<Writable> record(URI uri, DataInputStream dataInputStream ) throws IOException {
+    public Collection<Writable> record(URI uri, DataInputStream dataInputStream) throws IOException {
         Bitmap bmp = BitmapFactory.decodeStream(dataInputStream);
         INDArray row = toINDArrayBGR(bmp);
         Collection<Writable> ret = RecordConverter.toRecord(row);
-        if(appendLabel) ret.add(new DoubleWritable(labels.indexOf(getLabel(uri.getPath()))));
+        if (appendLabel) ret.add(new DoubleWritable(labels.indexOf(getLabel(uri.getPath()))));
         return ret;
     }
 
@@ -222,7 +230,7 @@ public class AndroidImageRecordReader implements RecordReader {
 
         int[] pix = new int[width * height];
 
-        image.getPixels(pix,0,width,0,0,width,height);
+        image.getPixels(pix, 0, width, 0, 0, width, height);
 
         int[] shape = new int[]{height, width, 3};
         INDArray ret = Nd4j.create(new ImageByteBuffer(pix), shape);

@@ -24,7 +24,9 @@ import android.util.Log;
 
 import org.canova.api.split.InputStreamInputSplit;
 import org.canova.image.recordreader.ImageRecordReader;
+import org.deeplearning4j.androidexamples.AndroidImageRecordReader;
 import org.deeplearning4j.androidexamples.AndroidMnistDataSetIterator;
+import org.deeplearning4j.androidexamples.MultipleInputStreamInputSplit;
 import org.deeplearning4j.datasets.canova.RecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.DataSetIterator;
 import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
@@ -47,6 +49,7 @@ import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -122,11 +125,16 @@ public class ImageGridActivity extends FragmentActivity {
            ImageRecordReader doesn't work in Android due to ImageIO unavailability.
          */
         AssetManager am = getAssets();
-        List<String> labels = Arrays.asList(am.list("data"));
-        ImageRecordReader reader = new ImageRecordReader(28, 28, true, labels);
+        String[] labels = am.list("data");
+        AndroidImageRecordReader reader = new AndroidImageRecordReader(28, 28, 1, Arrays.asList(labels));
 //        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
-        reader.initialize(new InputStreamInputSplit(am.open(labels.get(0))));
-        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
+
+        InputStream[] is = new InputStream[labels.length];
+        for(int i = 0; i < labels.length; i++){
+            is[i] = am.open(labels[i]);
+        }
+        reader.initialize(new MultipleInputStreamInputSplit(is,labels));
+        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.length);
 
 //        DataSetIterator mnistIter = new AndroidMnistDataSetIterator(getApplicationContext(), batchSize, numSamples, true);
 
