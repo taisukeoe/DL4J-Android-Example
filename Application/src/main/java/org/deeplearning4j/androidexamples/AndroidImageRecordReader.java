@@ -4,6 +4,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Path;
 
+import com.example.android.common.logger.Log;
+
 import org.apache.commons.io.FileUtils;
 import org.canova.api.conf.Configuration;
 import org.canova.api.io.data.DoubleWritable;
@@ -18,6 +20,8 @@ import org.canova.image.loader.ImageLoader;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.util.Paths;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -46,7 +50,7 @@ public class AndroidImageRecordReader implements RecordReader {
     protected Collection<Writable> record = new ArrayList<>();
     protected final List<String> allowedFormats = Arrays.asList("tif", "jpg", "png", "jpeg", "bmp", "JPEG", "JPG", "TIF", "PNG");
     protected boolean hitImage = false;
-    protected ImageLoader imageLoader;
+
     protected InputSplit inputSplit;
     protected Map<String, String> fileNameMap = new LinkedHashMap<>();
     protected String pattern; // Pattern to split and segment file name, pass in regex
@@ -55,6 +59,9 @@ public class AndroidImageRecordReader implements RecordReader {
     public final static String WIDTH = NAME_SPACE + ".width";
     public final static String HEIGHT = NAME_SPACE + ".height";
     public final static String CHANNELS = NAME_SPACE + ".channels";
+
+    private static Logger log = LoggerFactory.getLogger(AndroidImageRecordReader.class);
+
 
     public AndroidImageRecordReader() {
     }
@@ -66,8 +73,7 @@ public class AndroidImageRecordReader implements RecordReader {
 
     public AndroidImageRecordReader(int width, int height, int channels, boolean appendLabel) {
         this.appendLabel = appendLabel;
-        imageLoader = new ImageLoader(width, height, channels);
-    }
+     }
 
 
     public AndroidImageRecordReader(int width, int height, int channels, boolean appendLabel, List<String> labels) {
@@ -132,7 +138,6 @@ public class AndroidImageRecordReader implements RecordReader {
     public void initialize(Configuration conf, InputSplit split) throws IOException, InterruptedException {
         this.appendLabel = conf.getBoolean(APPEND_LABEL, false);
         this.labels = new ArrayList<>(conf.getStringCollection(LABELS));
-        imageLoader = new ImageLoader(conf.getInt(WIDTH, 28), conf.getInt(HEIGHT, 28), conf.getInt(CHANNELS, 1));
         this.conf = conf;
         initialize(split);
     }
@@ -146,7 +151,8 @@ public class AndroidImageRecordReader implements RecordReader {
             String label = getLabelFromURI(labelIter.next());
             try {
                 Bitmap bmp = BitmapFactory.decodeStream(is);
-                INDArray row = toINDArrayBGR(bmp);
+                INDArray row = toINDArrayGrey(bmp);
+//                INDArray row = toINDArrayBGR(bmp);
                 ret = RecordConverter.toRecord(row);
                 if (appendLabel)
                     ret.add(new DoubleWritable(labels.indexOf(label)));
@@ -224,15 +230,45 @@ public class AndroidImageRecordReader implements RecordReader {
         return ret;
     }
 
-    protected INDArray toINDArrayBGR(Bitmap image) {
+
+    protected INDArray toINDArrayGrey(Bitmap image) {
         int width = image.getWidth();
         int height = image.getHeight();
 
-        int[] pix = new int[width * height];
+        int plane = width * height;
+
+        int[] pix = new int[plane];
 
         image.getPixels(pix, 0, width, 0, 0, width, height);
 
-        int[] shape = new int[]{height, width, 3};
+        int[] shape = new int[]{height, width};
+
+        return Nd4j.create(new ImageByteBuffer(pix), shape);
+    }
+    
+    protected INDArray toINDArrayBGR(Bitmap image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int plane = width * height;
+        int channel = 3;
+
+
+        int[] rawPix = new int[plane];
+
+        image.getPixels(rawPix, 0, width, 0, 0, width, height);
+
+        int[] pix = new int[plane * channel];
+
+        for(int i = 0; i < plane; i++){
+            int pixel = rawPix[i];
+            pix[i] = (pixel & 0x00FF0000) >> 24;
+            pix[i + plane] = (pixel & 0x0000FF00) >> 16;
+            pix[i + plane*2] = (pixel & 0x000000FF) >> 8;
+        }
+
+        int[] shape = new int[]{height, width, channel};
+
+        log.info("shape:" + Arrays.toString(shape) + " bufSize:" + pix.length);
         INDArray ret = Nd4j.create(new ImageByteBuffer(pix), shape);
         return ret.permute(2, 0, 1);
     }

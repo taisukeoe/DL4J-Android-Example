@@ -49,6 +49,7 @@ import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -125,16 +126,26 @@ public class ImageGridActivity extends FragmentActivity {
            ImageRecordReader doesn't work in Android due to ImageIO unavailability.
          */
         AssetManager am = getAssets();
-        String[] labels = am.list("data");
-        AndroidImageRecordReader reader = new AndroidImageRecordReader(28, 28, 1, Arrays.asList(labels));
+        int[] list = new int[]{0,1,2,3,4,5,6,7,8,9};
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<InputStream> iss = new ArrayList<>();
+
+        for(int i:list){
+            String dir = String.valueOf(i);
+            String[] paths = am.list(dir);
+            for(String p:paths){
+                labels.add(p);
+                iss.add(am.open(dir + File.separator + p));
+            }
+        }
+        InputStream[] is = new InputStream[iss.size()];
+        String[] label = new String[labels.size()];
+
+        AndroidImageRecordReader reader = new AndroidImageRecordReader(28, 28, 1, labels);
 //        TODO InputStreamInputSplit has to have an InputStream for chunks, but AssetManager has to return InputStreams for each assets.
 
-        InputStream[] is = new InputStream[labels.length];
-        for(int i = 0; i < labels.length; i++){
-            is[i] = am.open(labels[i]);
-        }
-        reader.initialize(new MultipleInputStreamInputSplit(is,labels));
-        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.length);
+        reader.initialize(new MultipleInputStreamInputSplit(iss.toArray(is),labels.toArray(label)));
+        DataSetIterator mnistIter = new RecordReaderDataSetIterator(reader, 784, labels.size());
 
 //        DataSetIterator mnistIter = new AndroidMnistDataSetIterator(getApplicationContext(), batchSize, numSamples, true);
 
