@@ -28,6 +28,7 @@
     <application android:allowBackup="true"
         android:label="@string/app_name"
         android:description="@string/intro_message"
+        android:name="android.support.multidex.MultiDexApplication"
         android:icon="@drawable/ic_launcher"
         android:theme="@style/AppThemeDark">
 
