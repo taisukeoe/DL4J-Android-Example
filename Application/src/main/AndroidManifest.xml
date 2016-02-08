@@ -30,6 +30,7 @@
         android:description="@string/intro_message"
         android:name="android.support.multidex.MultiDexApplication"
         android:icon="@drawable/ic_launcher"
+        android:largeHeap="true"
         android:theme="@style/AppThemeDark">
 
         <activity android:name=".ui.ImageGridActivity"
